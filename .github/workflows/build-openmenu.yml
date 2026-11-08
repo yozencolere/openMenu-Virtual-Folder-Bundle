@@ -71,7 +71,7 @@ jobs:
 
       - name: Check the Avalonia Card Manager still compiles
         shell: pwsh
-        run: dotnet build "GD MENU Card Manager/src/GDMENUCardManager.AvaloniaUI/GDMENUCardManager.AvaloniaUI.csproj" -c Release
+        run: dotnet publish "GD MENU Card Manager/src/GDMENUCardManager.AvaloniaUI/GDMENUCardManager.AvaloniaUI.csproj" -c Release --self-contained true -r linux-x64 -p:PublishSingleFile=false -o "$env:RUNNER_TEMP/avalonia"
 
       - name: Conversion test (one track and three tracks)
         shell: pwsh
