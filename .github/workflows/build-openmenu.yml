@@ -61,6 +61,9 @@ jobs:
           mkdir -p /tmp/out/modifie /tmp/out/sans_modif
           cp openMenu/cmake-build-dc-release/bin/1ST_READ.BIN /tmp/out/modifie/
           cp orig_openMenu/cmake-build-dc-release/bin/1ST_READ.BIN /tmp/out/sans_modif/
+          cp openMenu/cmake-build-dc-release/bin/openmenu.elf /tmp/out/modifie/
+          cp orig_openMenu/cmake-build-dc-release/bin/openmenu.elf /tmp/out/sans_modif/
+          docker exec -u root omdev bash -c "cd /opt/toolchains/dc/kos && git log -1 --format='%H %cd' ; git status --short | head -30; /opt/toolchains/dc/sh-elf/bin/sh-elf-gcc --version | head -1; /opt/toolchains/dc/sh-elf/bin/sh-elf-ld --version | head -1" > /tmp/out/image_info.txt
           ls -l /tmp/out/*/
           sha256sum /tmp/out/*/1ST_READ.BIN
           sudo rm -rf openMenu/cmake-build-dc-release orig_openMenu
@@ -70,6 +73,6 @@ jobs:
           git rm -rq --cached .
           rm -rf ./*/ 2>/dev/null || true
           cp -r /tmp/out/* .
-          git add modifie/1ST_READ.BIN sans_modif/1ST_READ.BIN
+          git add modifie sans_modif image_info.txt
           git commit -m "Build output for ${GITHUB_SHA}"
           git push -f origin build-output
