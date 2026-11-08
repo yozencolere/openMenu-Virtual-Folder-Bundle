@@ -229,7 +229,7 @@ namespace GDMENUCardManager.Core.MenuOptions
             cfg.ForceStyleTheme = force;
             cfg.Style = style;
             cfg.ThemeId = themeId;
-            await SaveAsync(cfg, null);
+            await SaveAsync(cfg, (IReadOnlyList<string>)null);
         }
 
         public async Task<BgmConversionResult> ApplyBgmAsync(bool enabled, string newBgmSourcePath)
@@ -253,7 +253,7 @@ namespace GDMENUCardManager.Core.MenuOptions
         {
             var cfg = Load();
             cfg.SerialSdWarning = serialSdWarning;
-            await SaveAsync(cfg, null);
+            await SaveAsync(cfg, (IReadOnlyList<string>)null);
         }
 
         /// <summary>
