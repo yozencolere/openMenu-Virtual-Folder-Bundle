@@ -234,9 +234,19 @@ namespace GDMENUCardManager.Core.MenuOptions
 
         public async Task<BgmConversionResult> ApplyBgmAsync(bool enabled, string newBgmSourcePath)
         {
+            return await ApplyBgmAsync(enabled,
+                string.IsNullOrEmpty(newBgmSourcePath) ? null : new[] { newBgmSourcePath });
+        }
+
+        /// <summary>
+        /// Like ApplyBgmAsync with one file, but converts every given file into BGM.ADP.
+        /// With more than one track openMenu plays them in random order.
+        /// </summary>
+        public async Task<BgmConversionResult> ApplyBgmAsync(bool enabled, IReadOnlyList<string> newBgmSourcePaths)
+        {
             var cfg = Load();
             cfg.BgmEnabled = enabled;
-            return await SaveAsync(cfg, newBgmSourcePath);
+            return await SaveAsync(cfg, newBgmSourcePaths);
         }
 
         public async Task ApplyMiscAsync(bool serialSdWarning)
@@ -251,17 +261,25 @@ namespace GDMENUCardManager.Core.MenuOptions
         /// converted and BGM.ADP replaced. Returns the conversion result, or null
         /// when no conversion ran.
         /// </summary>
-        public async Task<BgmConversionResult> SaveAsync(MenuOptionsConfig cfg, string newBgmSourcePath)
+        public Task<BgmConversionResult> SaveAsync(MenuOptionsConfig cfg, string newBgmSourcePath)
+        {
+            return SaveAsync(cfg, string.IsNullOrEmpty(newBgmSourcePath) ? null : new[] { newBgmSourcePath });
+        }
+
+        public async Task<BgmConversionResult> SaveAsync(MenuOptionsConfig cfg, IReadOnlyList<string> newBgmSourcePaths)
         {
             Directory.CreateDirectory(menuDataPath);
 
             BgmConversionResult result = null;
             if (cfg.BgmEnabled)
             {
-                if (!string.IsNullOrEmpty(newBgmSourcePath))
+                if (newBgmSourcePaths != null && newBgmSourcePaths.Count > 0)
                 {
-                    result = await BgmConverter.ConvertAsync(newBgmSourcePath, BgmPath);
-                    cfg.BgmSourceFile = Path.GetFileName(newBgmSourcePath);
+                    result = await BgmConverter.ConvertAsync(newBgmSourcePaths, BgmPath);
+                    cfg.BgmSourceFile = newBgmSourcePaths.Count == 1
+                        ? Path.GetFileName(newBgmSourcePaths[0])
+                        // Kept short: openMenu also parses DEFAULTS.INI and has a line length limit.
+                        : $"{newBgmSourcePaths.Count} tracks (random order)";
                     cfg.BgmConvertedDate = DateTime.Now.ToString("yyyy-MM-dd");
                 }
                 else if (!File.Exists(BgmPath))

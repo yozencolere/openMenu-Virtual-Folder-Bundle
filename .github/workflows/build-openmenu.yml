@@ -1,4 +1,4 @@
-name: Build openMenu (Dreamcast)
+name: Build openMenu (Dreamcast) and GD MENU Card Manager
 
 on:
   push:
@@ -9,13 +9,11 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  openmenu:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Start the prebuilt openMenu image used for official builds
         run: |
@@ -30,48 +28,98 @@ jobs:
             source ./environ.sh
             P=/repo/openMenu/docker/kos_patch
             for p in fs_iso9660 libkosfat_directory; do
-              if patch --dry-run --batch --reverse -p1 < $P/$p.patch >/dev/null 2>&1; then
-                echo "$p: already applied in image"
-              else
-                echo "$p: NOT in image"; exit 1
-              fi
+              patch --dry-run --batch --reverse -p1 < $P/$p.patch >/dev/null && echo "$p: already in image"
             done
             patch --batch --forward -p1 < $P/mouse_middle_button.patch
             kos-cc $KOS_CSTD -Wextra -Wno-deprecated -c kernel/arch/dreamcast/hardware/maple/mouse.c -o kernel/build/mouse.o
             kos-ar rcs lib/dreamcast/libkallisti.a kernel/build/mouse.o
             patch --batch --forward -p1 < $P/sd_init_status.patch
+            patch --batch --forward -p1 < $P/libkosfat_bounds.patch
             kos-cc $KOS_CSTD -Wextra -Wno-deprecated -c kernel/arch/dreamcast/hardware/sd.c -o kernel/build/sd.o
             kos-ar rcs lib/dreamcast/libkallisti.a kernel/build/sd.o
             make -C addons/libkosfat
             make -C addons/libppp
-            ls addons/lib/dreamcast/
           '
 
-      - name: Build modified and unmodified openMenu
+      - name: Build openMenu
         run: |
-          git worktree add /tmp/orig d51c3b398e5a2d08a5e69e54430d9312593cb8e2
-          cp -r /tmp/orig/openMenu ./orig_openMenu
-          for d in openMenu orig_openMenu; do
-            docker exec -u root omdev bash -c "source /opt/toolchains/dc/kos/environ.sh && cd /repo/$d && cmake --preset dc-release && cmake --build --preset dc-release"
-          done
+          docker exec -u root omdev bash -c "source /opt/toolchains/dc/kos/environ.sh && cd /repo/openMenu && cmake --preset dc-release && cmake --build --preset dc-release"
+          mkdir -p out/openmenu
+          cp openMenu/cmake-build-dc-release/bin/1ST_READ.BIN openMenu/cmake-build-dc-release/bin/openmenu.elf out/openmenu/
 
-      - name: Commit binaries to the build-output branch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openmenu
+          path: out/
+
+  cardmanager:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: GD MENU Card Manager/global.json
+          dotnet-version: 6.0.x
+
+      - name: Build the Windows (WPF) Card Manager
+        shell: pwsh
         run: |
-          mkdir -p /tmp/out/modifie /tmp/out/sans_modif
-          cp openMenu/cmake-build-dc-release/bin/1ST_READ.BIN /tmp/out/modifie/
-          cp orig_openMenu/cmake-build-dc-release/bin/1ST_READ.BIN /tmp/out/sans_modif/
-          cp openMenu/cmake-build-dc-release/bin/openmenu.elf /tmp/out/modifie/
-          cp orig_openMenu/cmake-build-dc-release/bin/openmenu.elf /tmp/out/sans_modif/
-          docker exec -u root omdev bash -c "cd /opt/toolchains/dc/kos && git log -1 --format='%H %cd' ; git status --short | head -30; /opt/toolchains/dc/sh-elf/bin/sh-elf-gcc --version | head -1; /opt/toolchains/dc/sh-elf/bin/sh-elf-ld --version | head -1" > /tmp/out/image_info.txt
-          ls -l /tmp/out/*/
-          sha256sum /tmp/out/*/1ST_READ.BIN
-          sudo rm -rf openMenu/cmake-build-dc-release orig_openMenu
+          dotnet publish "GD MENU Card Manager/src/GDMENUCardManager/GDMENUCardManager.csproj" -c Release -o out/cardmanager
+          Get-ChildItem out/cardmanager | Select-Object Name, Length | Format-Table -AutoSize
+
+      - name: Check the Avalonia Card Manager still compiles
+        shell: pwsh
+        run: dotnet build "GD MENU Card Manager/src/GDMENUCardManager.AvaloniaUI/GDMENUCardManager.AvaloniaUI.csproj" -c Release
+
+      - name: Conversion test (one track and three tracks)
+        shell: pwsh
+        run: |
+          python - <<'PY'
+          import math, struct, wave
+          def tone(path, rate, channels, seconds, freq):
+              with wave.open(path, "wb") as w:
+                  w.setnchannels(channels); w.setsampwidth(2); w.setframerate(rate)
+                  frames = bytearray()
+                  for i in range(int(rate * seconds)):
+                      v = int(12000 * math.sin(2 * math.pi * freq * i / rate))
+                      frames += struct.pack("<h", v) * channels
+                  w.writeframes(bytes(frames))
+          tone("t1.wav", 22050, 1, 1.0, 440)
+          tone("t2.wav", 44100, 2, 2.0, 660)
+          tone("t3.wav", 48000, 1, 1.5, 880)
+          PY
+          Add-Type -Path "out/cardmanager/GDMENUCardManager.Core.dll"
+          New-Item -ItemType Directory -Force out/test | Out-Null
+          $one = [GDMENUCardManager.Core.Audio.BgmConverter]::Convert([string](Resolve-Path t1.wav), "$PWD/out/test/BGM_one.ADP")
+          $three = [GDMENUCardManager.Core.Audio.BgmConverter]::Convert([string[]]@((Resolve-Path t1.wav).Path, (Resolve-Path t2.wav).Path, (Resolve-Path t3.wav).Path), "$PWD/out/test/BGM_three.ADP")
+          "one:   tracks=$($one.TrackCount) channels=$($one.Channels) size=$($one.FileSize) duration=$($one.Duration)" | Tee-Object out/test/result.txt
+          "three: tracks=$($three.TrackCount) channels=$($three.Channels) size=$($three.FileSize) duration=$($three.Duration)" | Tee-Object -Append out/test/result.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardmanager
+          path: out/
+
+  publish:
+    needs: [openmenu, cardmanager]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/art
+      - name: Commit build output to the build-output branch
+        run: |
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git checkout --orphan build-output
           git rm -rq --cached .
-          rm -rf ./*/ 2>/dev/null || true
-          cp -r /tmp/out/* .
-          git add modifie sans_modif image_info.txt
-          git commit -m "Build output for ${GITHUB_SHA}"
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r /tmp/art/openmenu/* .
+          cp -r /tmp/art/cardmanager/* .
+          ls -lR | head -100
+          git add -A
+          git commit -qm "Build output for ${GITHUB_SHA}"
           git push -f origin build-output

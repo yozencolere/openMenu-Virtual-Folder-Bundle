@@ -8,6 +8,10 @@
  * by GDMENUCardManager. The AICA handles decoding, while this code keeps the
  * sound RAM ring buffer filled.
  *
+ * Version 1 holds a single track that loops. Version 2 holds several tracks
+ * listed in a table right after the header; they play one after another in
+ * random order, never the same track twice in a row.
+ *
  * A 512 KB buffer in main RAM sits between the GD drive and the sound chip.
  * This gives box art loading enough time to use the drive without interrupting
  * playback.
@@ -16,6 +20,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <arch/rtc.h>
+#include <arch/timer.h>
 #include <dc/sound/sound.h>
 #include <dc/sound/stream.h>
 #include <kos.h>
@@ -25,6 +31,11 @@
 
 #define BGM_FILE         "/cd/BGM.ADP"
 #define BGM_HEADER_LEN   32
+
+/* Version 2 track table: one { u32 offset, u32 length } entry per track,
+ * offsets counted from the start of the file */
+#define BGM_MAX_TRACKS   256
+#define BGM_TRACK_ENTRY  8
 
 /* About 12 to 16 seconds of stereo ADPCM depending on sample rate */
 #define BGM_RING_SIZE    (512 << 10)
@@ -54,9 +65,16 @@ static int snd_ready = 0;
 
 static file_t bgm_fd = -1;
 static snd_stream_hnd_t stream_hnd = SND_STREAM_INVALID;
-static uint32_t payload_start = 0;
 static uint32_t sample_rate = 0;
 static int stereo = 0;
+
+static uint32_t track_offset[BGM_MAX_TRACKS];
+static uint32_t track_length[BGM_MAX_TRACKS];
+static uint32_t track_count = 0;
+static uint32_t current_track = 0;
+static uint32_t track_remaining = 0; /* bytes of the current track not read yet */
+
+static uint32_t rng_state = 1;
 
 static uint8_t ring[BGM_RING_SIZE] __attribute__((aligned(32)));
 static uint32_t ring_head = 0;  /* next write offset */
@@ -67,8 +85,41 @@ static uint32_t ring_level = 0; /* bytes currently buffered */
  * so requests are bounced through here */
 static uint8_t staging[BGM_STAGING_SIZE] __attribute__((aligned(32)));
 
-/* Pulls one chunk from the disc into the ring. At end of file the track
- * wraps back to the payload start, which is also how looping works. */
+static uint32_t
+bgm_random(void) {
+    /* xorshift32 */
+    uint32_t x = rng_state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    rng_state = x;
+    return x;
+}
+
+/* Positions the file at the start of the given track */
+static void
+bgm_seek_track(uint32_t track) {
+    current_track = track;
+    track_remaining = track_length[track];
+    fs_seek(bgm_fd, track_offset[track], SEEK_SET);
+}
+
+/* Moves on to a random track other than the current one. With a single
+ * track this rewinds it, which is how looping works. */
+static void
+bgm_next_track(void) {
+    uint32_t next = 0;
+    if (track_count > 1) {
+        next = bgm_random() % (track_count - 1);
+        if (next >= current_track) {
+            next++;
+        }
+    }
+    bgm_seek_track(next);
+}
+
+/* Pulls one chunk from the disc into the ring. At the end of a track the
+ * next one starts, so the ring always holds continuous audio. */
 static void
 bgm_ring_fill_chunk(void) {
     if (BGM_RING_SIZE - ring_level < BGM_READ_CHUNK) {
@@ -81,10 +132,17 @@ bgm_ring_fill_chunk(void) {
         run = BGM_READ_CHUNK;
     }
 
+    if (track_remaining == 0) {
+        bgm_next_track();
+    }
+    if (run > track_remaining) {
+        run = track_remaining;
+    }
+
     ssize_t got = fs_read(bgm_fd, ring + ring_head, run);
     if (got == 0) {
-        /* end of track, loop back to the payload start */
-        fs_seek(bgm_fd, payload_start, SEEK_SET);
+        /* file shorter than the table says, move on */
+        track_remaining = 0;
         return;
     }
     if (got < 0) {
@@ -94,6 +152,7 @@ bgm_ring_fill_chunk(void) {
 
     ring_head = (ring_head + (uint32_t)got) % BGM_RING_SIZE;
     ring_level += (uint32_t)got;
+    track_remaining -= (uint32_t)got;
 }
 
 static void*
@@ -150,23 +209,69 @@ bgm_init(void) {
     uint16_t channels = header[0x0C] | (header[0x0D] << 8);
 
     /* 44.1 kHz is the most the AICA can play */
-    if (version != 1 || sample_rate < 8000 || sample_rate > 44100 || (channels != 1 && channels != 2)) {
+    if ((version != 1 && version != 2) || sample_rate < 8000 || sample_rate > 44100
+        || (channels != 1 && channels != 2)) {
         fs_close(bgm_fd);
         bgm_fd = -1;
         return;
     }
 
-    /* a header with no audio behind it is not a track */
     fs_seek(bgm_fd, 0, SEEK_END);
-    if (fs_tell(bgm_fd) <= BGM_HEADER_LEN) {
-        fs_close(bgm_fd);
-        bgm_fd = -1;
-        return;
+    uint32_t file_size = (uint32_t)fs_tell(bgm_fd);
+
+    if (version == 1) {
+        /* a header with no audio behind it is not a track */
+        if (file_size <= BGM_HEADER_LEN) {
+            fs_close(bgm_fd);
+            bgm_fd = -1;
+            return;
+        }
+        track_count = 1;
+        track_offset[0] = BGM_HEADER_LEN;
+        track_length[0] = file_size - BGM_HEADER_LEN;
+    } else {
+        uint32_t count = header[0x10] | (header[0x11] << 8) | (header[0x12] << 16) | ((uint32_t)header[0x13] << 24);
+        uint32_t table_end = BGM_HEADER_LEN + count * BGM_TRACK_ENTRY;
+        if (count == 0 || count > BGM_MAX_TRACKS || table_end > file_size) {
+            fs_close(bgm_fd);
+            bgm_fd = -1;
+            return;
+        }
+
+        uint8_t entry[BGM_TRACK_ENTRY];
+        fs_seek(bgm_fd, BGM_HEADER_LEN, SEEK_SET);
+        track_count = 0;
+        for (uint32_t i = 0; i < count; i++) {
+            if (fs_read(bgm_fd, entry, sizeof(entry)) != (ssize_t)sizeof(entry)) {
+                break;
+            }
+            uint32_t off = entry[0] | (entry[1] << 8) | (entry[2] << 16) | ((uint32_t)entry[3] << 24);
+            uint32_t len = entry[4] | (entry[5] << 8) | (entry[6] << 16) | ((uint32_t)entry[7] << 24);
+            /* skip entries that point outside the audio area */
+            if (len == 0 || off < table_end || off > file_size || len > file_size - off) {
+                continue;
+            }
+            track_offset[track_count] = off;
+            track_length[track_count] = len;
+            track_count++;
+        }
+        if (track_count == 0) {
+            fs_close(bgm_fd);
+            bgm_fd = -1;
+            return;
+        }
     }
-    fs_seek(bgm_fd, BGM_HEADER_LEN, SEEK_SET);
+
+    /* Seed from the clock so each boot starts with a different track */
+    uint64_t now = timer_us_gettime64();
+    rng_state = (uint32_t)rtc_unix_secs() ^ (uint32_t)now ^ (uint32_t)(now >> 32);
+    if (rng_state == 0) {
+        rng_state = 0x9e3779b9u;
+    }
+
+    bgm_seek_track(track_count > 1 ? bgm_random() % track_count : 0);
 
     stereo = (channels == 2);
-    payload_start = BGM_HEADER_LEN;
     bgm_ok = 1;
 }
 
@@ -237,13 +342,13 @@ bgm_start(void) {
 
 static void
 bgm_pause(void) {
-    /* Turning the setting back on restarts the track from the top,
+    /* Turning the setting back on restarts the current track from the top,
      * so drop the buffered audio and rewind the file now */
     snd_stream_stop(stream_hnd);
     ring_head = 0;
     ring_tail = 0;
     ring_level = 0;
-    fs_seek(bgm_fd, payload_start, SEEK_SET);
+    bgm_seek_track(current_track);
     playing = 0;
 }
 

@@ -60,7 +60,7 @@
             <TabItem Header="Background Music">
                 <StackPanel Margin="10">
                     <!-- Instructions -->
-                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,15" xml:space="preserve"><Run FontWeight="Bold">Play looping background music in openMenu</Run><LineBreak/><LineBreak/><Run>The selected track is converted to Dreamcast ADPCM at 44.1 kHz (about 2.65 MB per minute of audio) and stored inside the menu disc image. Use </Run><Run FontWeight="Bold">Browse</Run><Run> to select a WAV, MP3, OGG, or FLAC file, then click </Run><Run FontWeight="Bold">Apply</Run><Run>. Music can be toggled on the console via the "Play BGM" setting in openMenu.</Run><LineBreak/><LineBreak/><Run>Changes take effect after clicking </Run><Run FontWeight="Bold">Save Changes</Run><Run> in the main window.</Run></TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,15" xml:space="preserve"><Run FontWeight="Bold">Play looping background music in openMenu</Run><LineBreak/><LineBreak/><Run>The selected tracks are converted to Dreamcast ADPCM at 44.1 kHz (about 2.65 MB per minute of audio) and stored inside the menu disc image. Use </Run><Run FontWeight="Bold">Browse</Run><Run> to select one or more WAV, MP3, OGG, or FLAC files (several tracks play in random order), then click </Run><Run FontWeight="Bold">Apply</Run><Run>. Music can be toggled on the console via the "Play BGM" setting in openMenu.</Run><LineBreak/><LineBreak/><Run>Changes take effect after clicking </Run><Run FontWeight="Bold">Save Changes</Run><Run> in the main window.</Run></TextBlock>
 
                     <CheckBox IsChecked="{Binding BgmEnabled}" Margin="0,0,0,10"
                               ToolTip="Include a background music track on the menu disc">
@@ -76,7 +76,7 @@
                                        Margin="0,0,0,8" Visibility="{Binding HasExistingBgm, Converter={StaticResource BoolToVis}}"/>
                             <DockPanel>
                                 <Button DockPanel.Dock="Right" Content="Browse..." Padding="10,3" Margin="8,0,0,0" Click="BrowseButton_Click"
-                                        ToolTip="Select a WAV, MP3, OGG, or FLAC file to convert"/>
+                                        ToolTip="Select one or more WAV, MP3, OGG, or FLAC files to convert"/>
                                 <TextBox Text="{Binding SelectedSourceDisplay, Mode=OneWay}" IsReadOnly="True" VerticalContentAlignment="Center"/>
                             </DockPanel>
                             <TextBlock Text="Select a music file to enable the Apply button." FontSize="11" Margin="0,8,0,0"

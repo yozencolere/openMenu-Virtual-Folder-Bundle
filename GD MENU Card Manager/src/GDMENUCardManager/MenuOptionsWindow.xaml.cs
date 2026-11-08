@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
@@ -85,8 +86,23 @@ namespace GDMENUCardManager
             }
         }
 
+        private IReadOnlyList<string> _selectedSourcePaths;
+        /// <summary>Every file picked in the last Browse, in the order given.</summary>
+        public IReadOnlyList<string> SelectedSourcePaths
+        {
+            get => _selectedSourcePaths;
+            set
+            {
+                _selectedSourcePaths = value;
+                SelectedSourcePath = value != null && value.Count > 0 ? value[0] : null;
+            }
+        }
+
         public string SelectedSourceDisplay =>
-            string.IsNullOrEmpty(SelectedSourcePath) ? "(no new file selected)" : SelectedSourcePath;
+            string.IsNullOrEmpty(SelectedSourcePath) ? "(no new file selected)"
+            : _selectedSourcePaths != null && _selectedSourcePaths.Count > 1
+                ? $"{_selectedSourcePaths.Count} files: " + string.Join(", ", _selectedSourcePaths.Select(Path.GetFileName))
+                : SelectedSourcePath;
 
         private bool _hasExistingBgm;
         public bool HasExistingBgm
@@ -178,12 +194,13 @@ namespace GDMENUCardManager
         {
             var fileDialog = new OpenFileDialog
             {
-                Title = "Select Music File",
-                Filter = "Audio Files|*.wav;*.mp3;*.ogg;*.flac|All Files|*.*"
+                Title = "Select Music Files",
+                Filter = "Audio Files|*.wav;*.mp3;*.ogg;*.flac|All Files|*.*",
+                Multiselect = true
             };
             if (fileDialog.ShowDialog(this) == true)
             {
-                SelectedSourcePath = fileDialog.FileName;
+                SelectedSourcePaths = fileDialog.FileNames;
             }
         }
 
@@ -222,7 +239,9 @@ namespace GDMENUCardManager
 
         private async void ApplyBgmButton_Click(object sender, RoutedEventArgs e)
         {
-            var newSource = BgmEnabled ? SelectedSourcePath : null;
+            var newSources = BgmEnabled && SelectedSourcePaths != null && SelectedSourcePaths.Count > 0
+                ? SelectedSourcePaths : null;
+            var newSource = newSources?[0];
 
             ProgressWindow progressWindow = null;
             if (!string.IsNullOrEmpty(newSource))
@@ -231,14 +250,16 @@ namespace GDMENUCardManager
                 progressWindow.Owner = this;
                 progressWindow.Title = "Converting Music";
                 progressWindow.TotalItems = 1;
-                progressWindow.TextContent = $"Converting {Path.GetFileName(newSource)} to Dreamcast ADPCM...";
+                progressWindow.TextContent = newSources.Count > 1
+                    ? $"Converting {newSources.Count} tracks to Dreamcast ADPCM..."
+                    : $"Converting {Path.GetFileName(newSource)} to Dreamcast ADPCM...";
                 progressWindow.Show();
             }
 
             try
             {
                 IsEnabled = false;
-                var result = await _menuOptions.ApplyBgmAsync(BgmEnabled, newSource);
+                var result = await _menuOptions.ApplyBgmAsync(BgmEnabled, newSources);
 
                 if (progressWindow != null)
                 {
@@ -248,7 +269,7 @@ namespace GDMENUCardManager
                 }
 
                 RefreshBgmState(_menuOptions.Load());
-                SelectedSourcePath = null;
+                SelectedSourcePaths = null;
 
                 var message = "Background music setting applied.";
                 if (result != null)
@@ -256,7 +277,9 @@ namespace GDMENUCardManager
                     var size = ByteSize.FromBytes(result.FileSize);
                     var mode = result.Channels == 2 ? "stereo" : "mono";
                     var duration = $"{(int)result.Duration.TotalMinutes}:{result.Duration.Seconds:00}";
-                    message = $"Music track converted ({duration}, {mode}, {size:0.#}).";
+                    message = result.TrackCount > 1
+                        ? $"{result.TrackCount} music tracks converted ({duration} in total, {mode}, {size:0.#}). openMenu plays them in random order."
+                        : $"Music track converted ({duration}, {mode}, {size:0.#}).";
                     if (result.Duration.TotalMinutes > 10)
                         message += "\n\nNote: tracks over 10 minutes make the menu disc image noticeably larger.";
                 }

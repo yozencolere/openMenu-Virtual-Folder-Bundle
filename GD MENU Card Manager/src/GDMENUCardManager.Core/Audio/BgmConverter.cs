@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@ namespace GDMENUCardManager.Core.Audio
         public long FileSize { get; set; }
         public int SampleRate { get; set; }
         public int Channels { get; set; }
+        public int TrackCount { get; set; } = 1;
     }
 
     /// <summary>
@@ -17,44 +19,99 @@ namespace GDMENUCardManager.Core.Audio
     /// The file is a 32 byte OMBG header followed by AICA ADPCM data. Stereo packs one
     /// frame per byte with the left sample in the high nibble, matching what the KOS
     /// snd_adpcm_split routine expects. Mono packs two samples per byte, low nibble first.
+    ///
+    /// A single track is written as version 1. Several tracks are written as version 2:
+    /// the header is followed by a table of { u32 offset, u32 length } entries, one per
+    /// track, then the tracks themselves. openMenu plays them in random order. All tracks
+    /// share one channel count, so mono tracks are upmixed when any track is stereo.
     /// </summary>
     public static class BgmConverter
     {
         public const int TargetSampleRate = 44100;
-        private const uint HeaderVersion = 1;
+        private const uint HeaderVersionSingle = 1;
+        private const uint HeaderVersionPlaylist = 2;
+        private const int HeaderLength = 32;
+        private const int TrackEntryLength = 8;
+        public const int MaxTracks = 256;
         private const int MaxDurationSeconds = 3600;
+        private const int MaxTotalDurationSeconds = 3 * 3600;
 
         public static Task<BgmConversionResult> ConvertAsync(string sourcePath, string destPath)
         {
-            return Task.Run(() => Convert(sourcePath, destPath));
+            return Task.Run(() => Convert(new[] { sourcePath }, destPath));
+        }
+
+        public static Task<BgmConversionResult> ConvertAsync(IReadOnlyList<string> sourcePaths, string destPath)
+        {
+            return Task.Run(() => Convert(sourcePaths, destPath));
         }
 
         public static BgmConversionResult Convert(string sourcePath, string destPath)
         {
-            var decoded = AudioDecoder.Decode(sourcePath);
-            if (decoded.FrameCount == 0)
-                throw new InvalidDataException("The selected file contains no audio.");
-            if (decoded.FrameCount > (long)decoded.SampleRate * MaxDurationSeconds)
-                throw new InvalidDataException("The selected track is longer than an hour, which is too long for menu music.");
+            return Convert(new[] { sourcePath }, destPath);
+        }
 
-            var samples = decoded.Samples;
-            int channels = decoded.Channels;
+        public static BgmConversionResult Convert(IReadOnlyList<string> sourcePaths, string destPath)
+        {
+            if (sourcePaths == null || sourcePaths.Count == 0)
+                throw new ArgumentException("No music file was selected.", nameof(sourcePaths));
+            if (sourcePaths.Count > MaxTracks)
+                throw new InvalidDataException($"Too many music files selected (maximum {MaxTracks}).");
 
-            if (channels > 2)
+            // Decode every track first: the channel count of the whole set depends on all of them.
+            var tracks = new List<(float[] Samples, int Channels)>();
+            long totalFrames = 0;
+            foreach (var sourcePath in sourcePaths)
             {
-                samples = TakeFrontPair(samples, channels);
-                channels = 2;
+                var name = Path.GetFileName(sourcePath);
+                var decoded = AudioDecoder.Decode(sourcePath);
+                if (decoded.FrameCount == 0)
+                    throw new InvalidDataException($"{name} contains no audio.");
+                if (decoded.FrameCount > (long)decoded.SampleRate * MaxDurationSeconds)
+                    throw new InvalidDataException($"{name} is longer than an hour, which is too long for menu music.");
+
+                var samples = decoded.Samples;
+                int channels = decoded.Channels;
+                if (channels > 2)
+                {
+                    samples = TakeFrontPair(samples, channels);
+                    channels = 2;
+                }
+
+                samples = Resampler.Resample(samples, channels, decoded.SampleRate, TargetSampleRate);
+                if (samples.Length / channels == 0)
+                    throw new InvalidDataException($"{name} contains no audio.");
+
+                totalFrames += samples.Length / channels;
+                if (totalFrames > (long)TargetSampleRate * MaxTotalDurationSeconds)
+                    throw new InvalidDataException("The selected tracks add up to more than three hours, which is too long for menu music.");
+
+                tracks.Add((samples, channels));
             }
 
-            samples = Resampler.Resample(samples, channels, decoded.SampleRate, TargetSampleRate);
+            int outChannels = 1;
+            foreach (var t in tracks)
+                outChannels = Math.Max(outChannels, t.Channels);
 
-            int frames = samples.Length / channels;
-            if (frames == 0)
-                throw new InvalidDataException("The selected file contains no audio.");
+            var payloads = new List<byte[]>(tracks.Count);
+            for (int i = 0; i < tracks.Count; i++)
+            {
+                var samples = tracks[i].Samples;
+                if (tracks[i].Channels == 1 && outChannels == 2)
+                    samples = MonoToStereo(samples);
+                int frames = samples.Length / outChannels;
+                payloads.Add(outChannels == 2 ? EncodeStereo(samples, frames) : EncodeMono(samples, frames));
+                tracks[i] = (null, outChannels); // let the decoded audio go
+            }
 
-            byte[] payload = channels == 2
-                ? EncodeStereo(samples, frames)
-                : EncodeMono(samples, frames);
+            bool playlist = payloads.Count > 1;
+            long tableLength = playlist ? (long)payloads.Count * TrackEntryLength : 0;
+            long dataStart = HeaderLength + tableLength;
+            long totalLength = dataStart;
+            foreach (var p in payloads)
+                totalLength += p.Length;
+            if (totalLength > uint.MaxValue)
+                throw new InvalidDataException("The selected tracks are too large for menu music.");
 
             var tempPath = destPath + ".tmp";
             try
@@ -63,14 +120,27 @@ namespace GDMENUCardManager.Core.Audio
                 using (var bw = new BinaryWriter(fs))
                 {
                     bw.Write(new[] { (byte)'O', (byte)'M', (byte)'B', (byte)'G' });
-                    bw.Write(HeaderVersion);
+                    bw.Write(playlist ? HeaderVersionPlaylist : HeaderVersionSingle);
                     bw.Write((uint)TargetSampleRate);
-                    bw.Write((ushort)channels);
+                    bw.Write((ushort)outChannels);
                     bw.Write((ushort)0);
-                    bw.Write(0u);
-                    bw.Write((uint)frames);
+                    bw.Write(playlist ? (uint)payloads.Count : 0u);
+                    bw.Write((uint)Math.Min(totalFrames, uint.MaxValue));
                     bw.Write(0ul);
-                    bw.Write(payload);
+
+                    if (playlist)
+                    {
+                        long offset = dataStart;
+                        foreach (var p in payloads)
+                        {
+                            bw.Write((uint)offset);
+                            bw.Write((uint)p.Length);
+                            offset += p.Length;
+                        }
+                    }
+
+                    foreach (var p in payloads)
+                        bw.Write(p);
                 }
                 File.Move(tempPath, destPath, overwrite: true);
             }
@@ -83,11 +153,23 @@ namespace GDMENUCardManager.Core.Audio
 
             return new BgmConversionResult
             {
-                Duration = TimeSpan.FromSeconds((double)frames / TargetSampleRate),
-                FileSize = 32 + payload.Length,
+                Duration = TimeSpan.FromSeconds((double)totalFrames / TargetSampleRate),
+                FileSize = totalLength,
                 SampleRate = TargetSampleRate,
-                Channels = channels
+                Channels = outChannels,
+                TrackCount = payloads.Count
             };
+        }
+
+        private static float[] MonoToStereo(float[] mono)
+        {
+            var stereo = new float[mono.Length * 2];
+            for (int i = 0; i < mono.Length; i++)
+            {
+                stereo[i * 2] = mono[i];
+                stereo[i * 2 + 1] = mono[i];
+            }
+            return stereo;
         }
 
         private static byte[] EncodeStereo(float[] interleaved, int frames)
