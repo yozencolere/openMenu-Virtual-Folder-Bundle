@@ -75,10 +75,9 @@ jobs:
         shell: pwsh
         run: dotnet publish "GD MENU Card Manager/src/GDMENUCardManager.AvaloniaUI/GDMENUCardManager.AvaloniaUI.csproj" -c Release --self-contained true -r linux-x64 -p:PublishSingleFile=false -o "$env:RUNNER_TEMP/avalonia"
 
-      - name: Conversion test (one track and three tracks)
-        shell: pwsh
+      - name: Generate test tones
+        shell: python
         run: |
-          python - <<'PY'
           import math, struct, wave
           def tone(path, rate, channels, seconds, freq):
               with wave.open(path, "wb") as w:
@@ -91,11 +90,15 @@ jobs:
           tone("t1.wav", 22050, 1, 1.0, 440)
           tone("t2.wav", 44100, 2, 2.0, 660)
           tone("t3.wav", 48000, 1, 1.5, 880)
-          PY
+
+      - name: Conversion test (one track and three tracks)
+        shell: pwsh
+        run: |
           Add-Type -Path "out/cardmanager/GDMENUCardManager.Core.dll"
           New-Item -ItemType Directory -Force out/test | Out-Null
-          $one = [GDMENUCardManager.Core.Audio.BgmConverter]::Convert([string](Resolve-Path t1.wav), "$PWD/out/test/BGM_one.ADP")
-          $three = [GDMENUCardManager.Core.Audio.BgmConverter]::Convert([string[]]@((Resolve-Path t1.wav).Path, (Resolve-Path t2.wav).Path, (Resolve-Path t3.wav).Path), "$PWD/out/test/BGM_three.ADP")
+          $t1 = (Resolve-Path t1.wav).Path; $t2 = (Resolve-Path t2.wav).Path; $t3 = (Resolve-Path t3.wav).Path
+          $one = [GDMENUCardManager.Core.Audio.BgmConverter]::Convert([string]$t1, "$PWD/out/test/BGM_one.ADP")
+          $three = [GDMENUCardManager.Core.Audio.BgmConverter]::Convert([string[]]@($t1, $t2, $t3), "$PWD/out/test/BGM_three.ADP")
           "one:   tracks=$($one.TrackCount) channels=$($one.Channels) size=$($one.FileSize) duration=$($one.Duration)" | Tee-Object out/test/result.txt
           "three: tracks=$($three.TrackCount) channels=$($three.Channels) size=$($three.FileSize) duration=$($three.Duration)" | Tee-Object -Append out/test/result.txt
 
