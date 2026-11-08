@@ -44,6 +44,7 @@ jobs:
             kos-cc $KOS_CSTD -Wextra -Wno-deprecated -c kernel/arch/dreamcast/hardware/sd.c -o kernel/build/sd.o
             kos-ar rcs lib/dreamcast/libkallisti.a kernel/build/sd.o
             make -C addons/libkosfat
+            make -C addons/libppp
             ls addons/lib/dreamcast/
           '
 
