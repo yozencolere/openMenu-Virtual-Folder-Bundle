@@ -5,38 +5,70 @@ on:
     branches: [jaquettes-async]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Build the official toolchain image (openMenu/docker/Dockerfile)
-        run: docker build -t openmenu-dev:local openMenu/docker
-
-      - name: Build modified openMenu
+      - name: Start the prebuilt openMenu image used for official builds
         run: |
-          docker run --rm -u root -v "$PWD/openMenu:/src" -w /src openmenu-dev:local \
-            bash -c 'source /opt/toolchains/dc/kos/environ.sh && cmake --preset dc-release && cmake --build --preset dc-release'
+          docker pull sbstnc/openmenu-dev:0.2.2
+          docker run -d --name omdev -u root -v "$PWD:/repo" sbstnc/openmenu-dev:0.2.2 sleep infinity
 
-      - name: Build unmodified openMenu (control)
+      - name: Apply the KOS patches as documented in openMenu/docker/kos_patch/README.md
         run: |
-          git worktree add /tmp/orig HEAD~1
-          docker run --rm -u root -v "/tmp/orig/openMenu:/src" -w /src openmenu-dev:local \
-            bash -c 'source /opt/toolchains/dc/kos/environ.sh && cmake --preset dc-release && cmake --build --preset dc-release'
+          docker exec -u root omdev bash -c '
+            set -e
+            cd /opt/toolchains/dc/kos
+            source ./environ.sh
+            P=/repo/openMenu/docker/kos_patch
+            for p in fs_iso9660 libkosfat_directory; do
+              if patch --dry-run --batch --reverse -p1 < $P/$p.patch >/dev/null 2>&1; then
+                echo "$p: already applied in image"
+              else
+                echo "$p: NOT in image"; exit 1
+              fi
+            done
+            patch --batch --forward -p1 < $P/mouse_middle_button.patch
+            kos-cc $KOS_CSTD -Wextra -Wno-deprecated -c kernel/arch/dreamcast/hardware/maple/mouse.c -o kernel/build/mouse.o
+            kos-ar rcs lib/dreamcast/libkallisti.a kernel/build/mouse.o
+            patch --batch --forward -p1 < $P/sd_init_status.patch
+            patch --batch --forward -p1 < $P/libkosfat_bounds.patch
+            kos-cc $KOS_CSTD -Wextra -Wno-deprecated -c kernel/arch/dreamcast/hardware/sd.c -o kernel/build/sd.o
+            kos-ar rcs lib/dreamcast/libkallisti.a kernel/build/sd.o
+            make -C addons/libkosfat
+            ls addons/lib/dreamcast/
+          '
 
-      - name: Collect binaries
+      - name: Build modified and unmodified openMenu
         run: |
-          mkdir -p out/modifie out/sans_modif
-          cp openMenu/cmake-build-dc-release/bin/1ST_READ.BIN out/modifie/
-          cp /tmp/orig/openMenu/cmake-build-dc-release/bin/1ST_READ.BIN out/sans_modif/
-          ls -l out/*/
-          sha256sum out/*/1ST_READ.BIN
+          git worktree add /tmp/orig d51c3b398e5a2d08a5e69e54430d9312593cb8e2
+          cp -r /tmp/orig/openMenu ./orig_openMenu
+          for d in openMenu orig_openMenu; do
+            docker exec -u root omdev bash -c "source /opt/toolchains/dc/kos/environ.sh && cd /repo/$d && cmake --preset dc-release && cmake --build --preset dc-release"
+          done
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: openmenu-1ST_READ
-          path: out/
+      - name: Commit binaries to the build-output branch
+        run: |
+          mkdir -p /tmp/out/modifie /tmp/out/sans_modif
+          cp openMenu/cmake-build-dc-release/bin/1ST_READ.BIN /tmp/out/modifie/
+          cp orig_openMenu/cmake-build-dc-release/bin/1ST_READ.BIN /tmp/out/sans_modif/
+          ls -l /tmp/out/*/
+          sha256sum /tmp/out/*/1ST_READ.BIN
+          sudo rm -rf openMenu/cmake-build-dc-release orig_openMenu
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout --orphan build-output
+          git rm -rq --cached .
+          rm -rf ./*/ 2>/dev/null || true
+          cp -r /tmp/out/* .
+          git add modifie/1ST_READ.BIN sans_modif/1ST_READ.BIN
+          git commit -m "Build output for ${GITHUB_SHA}"
+          git push -f origin build-output
