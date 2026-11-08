@@ -1,0 +1,2 @@
+one:   tracks=1 channels=1 size=22112 duration=00:00:01
+three: tracks=3 channels=2 size=198584 duration=00:00:04.5000000

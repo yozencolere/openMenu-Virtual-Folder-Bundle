@@ -1,0 +1,306 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v6.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v6.0": {
+      "GDMENUCardManager/1.7.1.0": {
+        "dependencies": {
+          "ByteSize": "2.0.0",
+          "GDMENUCardManager.Core": "1.7.1",
+          "SharpCompress": "0.40.0",
+          "gong-wpf-dragdrop": "2.3.2"
+        },
+        "runtime": {
+          "GDMENUCardManager.dll": {}
+        }
+      },
+      "ByteSize/2.0.0": {
+        "runtime": {
+          "lib/netstandard1.0/ByteSize.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.0.0.0"
+          }
+        }
+      },
+      "ClosedXML/0.102.3": {
+        "dependencies": {
+          "DocumentFormat.OpenXml": "2.16.0",
+          "ExcelNumberFormat": "1.1.0",
+          "SixLabors.Fonts": "1.0.0",
+          "XLParser": "1.5.2"
+        },
+        "runtime": {
+          "lib/netstandard2.1/ClosedXML.dll": {
+            "assemblyVersion": "0.102.3.0",
+            "fileVersion": "0.102.3.0"
+          }
+        }
+      },
+      "CUETools.Codecs/1.0.2": {
+        "runtime": {
+          "lib/netstandard2.0/CUETools.Codecs.dll": {
+            "assemblyVersion": "1.0.2.0",
+            "fileVersion": "1.0.2.0"
+          }
+        }
+      },
+      "CUETools.Codecs.FLAKE/1.0.5": {
+        "dependencies": {
+          "CUETools.Codecs": "1.0.2"
+        },
+        "runtime": {
+          "lib/netstandard2.0/CUETools.Codecs.FLAKE.dll": {
+            "assemblyVersion": "1.0.5.0",
+            "fileVersion": "1.0.5.0"
+          }
+        }
+      },
+      "DocumentFormat.OpenXml/2.16.0": {
+        "runtime": {
+          "lib/netstandard2.0/DocumentFormat.OpenXml.dll": {
+            "assemblyVersion": "2.16.0.0",
+            "fileVersion": "2.16.0.0"
+          }
+        }
+      },
+      "ExcelNumberFormat/1.1.0": {
+        "runtime": {
+          "lib/netstandard2.0/ExcelNumberFormat.dll": {
+            "assemblyVersion": "1.1.0.0",
+            "fileVersion": "1.1.0.0"
+          }
+        }
+      },
+      "gong-wpf-dragdrop/2.3.2": {
+        "runtime": {
+          "lib/netcoreapp3.1/GongSolutions.WPF.DragDrop.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.3.2.3"
+          }
+        }
+      },
+      "Irony.NetCore/1.0.11": {
+        "runtime": {
+          "lib/netstandard1.6/Irony.dll": {
+            "assemblyVersion": "1.0.11.0",
+            "fileVersion": "1.0.11.0"
+          }
+        }
+      },
+      "NLayer/2.0.1": {
+        "runtime": {
+          "lib/netstandard2.0/NLayer.dll": {
+            "assemblyVersion": "2.0.1.0",
+            "fileVersion": "2.0.1.0"
+          }
+        }
+      },
+      "NVorbis/0.10.5": {
+        "runtime": {
+          "lib/netstandard2.0/NVorbis.dll": {
+            "assemblyVersion": "0.10.5.0",
+            "fileVersion": "0.10.5.0"
+          }
+        }
+      },
+      "SharpCompress/0.40.0": {
+        "dependencies": {
+          "ZstdSharp.Port": "0.8.5"
+        },
+        "runtime": {
+          "lib/net6.0/SharpCompress.dll": {
+            "assemblyVersion": "0.40.0.0",
+            "fileVersion": "0.40.0.0"
+          }
+        }
+      },
+      "SixLabors.Fonts/1.0.0": {
+        "runtime": {
+          "lib/netcoreapp3.1/SixLabors.Fonts.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "SixLabors.ImageSharp/3.1.6": {
+        "runtime": {
+          "lib/net6.0/SixLabors.ImageSharp.dll": {
+            "assemblyVersion": "3.0.0.0",
+            "fileVersion": "3.1.6.0"
+          }
+        }
+      },
+      "System.IO.Hashing/8.0.0": {
+        "runtime": {
+          "lib/net6.0/System.IO.Hashing.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
+      "XLParser/1.5.2": {
+        "dependencies": {
+          "Irony.NetCore": "1.0.11"
+        },
+        "runtime": {
+          "lib/netstandard1.6/XLParser.dll": {
+            "assemblyVersion": "1.5.2.0",
+            "fileVersion": "1.5.2.0"
+          }
+        }
+      },
+      "ZstdSharp.Port/0.8.5": {
+        "runtime": {
+          "lib/net6.0/ZstdSharp.dll": {
+            "assemblyVersion": "0.8.5.0",
+            "fileVersion": "0.8.5.0"
+          }
+        }
+      },
+      "GDMENUCardManager.Core/1.7.1": {
+        "dependencies": {
+          "ByteSize": "2.0.0",
+          "CUETools.Codecs.FLAKE": "1.0.5",
+          "ClosedXML": "0.102.3",
+          "NLayer": "2.0.1",
+          "NVorbis": "0.10.5",
+          "SixLabors.ImageSharp": "3.1.6",
+          "System.IO.Hashing": "8.0.0"
+        },
+        "runtime": {
+          "GDMENUCardManager.Core.dll": {
+            "assemblyVersion": "1.7.1.0",
+            "fileVersion": "1.7.1.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "GDMENUCardManager/1.7.1.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "ByteSize/2.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-9DuauHwXxbegELNMsHEP79hVY72L9fVg3BX9ayODylbN7212z4WNjC/jQ4pSjQNVyXtJDZpvob8k4wRhiac85g==",
+      "path": "bytesize/2.0.0",
+      "hashPath": "bytesize.2.0.0.nupkg.sha512"
+    },
+    "ClosedXML/0.102.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-4PN5JZsloPGfV2iSa2g62CSETQAtHELECwo9rzMvOAibe1fsPv0CNTOXXji+ihXOyEZBZDLhkE7s1MhHJzMxIA==",
+      "path": "closedxml/0.102.3",
+      "hashPath": "closedxml.0.102.3.nupkg.sha512"
+    },
+    "CUETools.Codecs/1.0.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-nWTrdvV8sBVkOcAxkARSMuLnbSJEYEZvPLJhsXKaBrac6lJyTNUyFuChB2/mIZiODJ1gPdDNoPx2yynI4TgKIA==",
+      "path": "cuetools.codecs/1.0.2",
+      "hashPath": "cuetools.codecs.1.0.2.nupkg.sha512"
+    },
+    "CUETools.Codecs.FLAKE/1.0.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-s+ubq2xIG2M8vKgE4JRuTm4LxXhT0DlUlIAA5P00w72PxhliVJ+GOfntUXTlA7CU55cyV+evb3FbJBPuTdqNTA==",
+      "path": "cuetools.codecs.flake/1.0.5",
+      "hashPath": "cuetools.codecs.flake.1.0.5.nupkg.sha512"
+    },
+    "DocumentFormat.OpenXml/2.16.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-RhpnDgyyx1KjZm98T3w3bSXFHG/7ZNUaVmz4NAUA+jmV3PcVNZeW87Y04CpBNLdDHEMSspirfo0B5kLRaoE97w==",
+      "path": "documentformat.openxml/2.16.0",
+      "hashPath": "documentformat.openxml.2.16.0.nupkg.sha512"
+    },
+    "ExcelNumberFormat/1.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-R3BVHPs9O+RkExbZYTGT0+9HLbi8ZrNij1Yziyw6znd3J7P3uoIR07uwTLGOogtz1p6+0sna66eBoXu7tBiVQA==",
+      "path": "excelnumberformat/1.1.0",
+      "hashPath": "excelnumberformat.1.1.0.nupkg.sha512"
+    },
+    "gong-wpf-dragdrop/2.3.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-DNDROdFmlwn544P2qVF+f+aHRZmEp8ub8IrjvWgT3VAK7LfdN3BcEi9mSEzmt8hUqIdt1+B1VHkJUdK7kO/zKw==",
+      "path": "gong-wpf-dragdrop/2.3.2",
+      "hashPath": "gong-wpf-dragdrop.2.3.2.nupkg.sha512"
+    },
+    "Irony.NetCore/1.0.11": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-/2MCkqdhEjPiSTZKYXg6u9AO9o3m68biqcFHAnM28WdnrcZii2vYbmKPzT5ejByyV72FUlygOtHBMt8SLnUyNw==",
+      "path": "irony.netcore/1.0.11",
+      "hashPath": "irony.netcore.1.0.11.nupkg.sha512"
+    },
+    "NLayer/2.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0nhnDRx98u7zXXbPIF11QYYupOOOQ9W22eqoyQyXn/gitRXbf9zAK8YfxyqS1Ix+TSqJv8EPNSk3VkDb7fChKw==",
+      "path": "nlayer/2.0.1",
+      "hashPath": "nlayer.2.0.1.nupkg.sha512"
+    },
+    "NVorbis/0.10.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-o+IptCG4Avze39HrGeztC+xIp6fOOwGVAwkoa1J++4Ji1WmZ+KIKlFl5wsgxsXqBkmdpfs/vFSUproiLKYa2bw==",
+      "path": "nvorbis/0.10.5",
+      "hashPath": "nvorbis.0.10.5.nupkg.sha512"
+    },
+    "SharpCompress/0.40.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-yP/aFX1jqGikVF7u2f05VEaWN4aCaKNLxSas82UgA2GGVECxq/BcqZx3STHCJ78qilo1azEOk1XpBglIuGMb7w==",
+      "path": "sharpcompress/0.40.0",
+      "hashPath": "sharpcompress.0.40.0.nupkg.sha512"
+    },
+    "SixLabors.Fonts/1.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-LFQsCZlV0xlUyXAOMUo5kkSl+8zAQXXbbdwWchtk0B4o7zotZhQsQOcJUELGHdfPfm/xDAsz6hONAuV25bJaAg==",
+      "path": "sixlabors.fonts/1.0.0",
+      "hashPath": "sixlabors.fonts.1.0.0.nupkg.sha512"
+    },
+    "SixLabors.ImageSharp/3.1.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-dHQ5jugF9v+5/LCVHCWVzaaIL6WOehqJy6eju/0VFYFPEj2WtqkGPoEV9EVQP83dHsdoqYaTuWpZdwAd37UwfA==",
+      "path": "sixlabors.imagesharp/3.1.6",
+      "hashPath": "sixlabors.imagesharp.3.1.6.nupkg.sha512"
+    },
+    "System.IO.Hashing/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ne1843evDugl0md7Fjzy6QjJrzsjh46ZKbhf8GwBXb5f/gw97J4bxMs0NQKifDuThh/f0bZ0e62NPl1jzTuRqA==",
+      "path": "system.io.hashing/8.0.0",
+      "hashPath": "system.io.hashing.8.0.0.nupkg.sha512"
+    },
+    "XLParser/1.5.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-8tnUCmMbn6c/HGuHFyq1sulHym8YReTKDNXFFQk0U8nldNx6RGrwRvLh0+aQjEc7YoC3Q1ztH1npLt7dClKqjw==",
+      "path": "xlparser/1.5.2",
+      "hashPath": "xlparser.1.5.2.nupkg.sha512"
+    },
+    "ZstdSharp.Port/0.8.5": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-TR4j17WeVSEb3ncgL2NqlXEqcy04I+Kk9CaebNDplUeL8XOgjkZ7fP4Wg4grBdPLIqsV86p2QaXTkZoRMVOsew==",
+      "path": "zstdsharp.port/0.8.5",
+      "hashPath": "zstdsharp.port.0.8.5.nupkg.sha512"
+    },
+    "GDMENUCardManager.Core/1.7.1": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
