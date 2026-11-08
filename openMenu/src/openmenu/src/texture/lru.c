@@ -45,8 +45,10 @@ find_in_cache(cache_instance* cache, const char* key) {
     }
     HASH_FIND_STR(cache->cache, key, entry);
     if (entry) {
-        /* Remove it, so the add below puts it back on the front of the list. */
-        if (entry != cache->cache) {
+        /* Remove it, so the add below puts it back at the newest end of the list.
+         * The head is the oldest entry and the next to be evicted, so it has to
+         * move too. A lone entry has nowhere to go. */
+        if (HASH_COUNT(cache->cache) > 1) {
             HASH_DELETE(hh, cache->cache, entry);
             HASH_ADD_STR(cache->cache, key, entry);
         }

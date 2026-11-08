@@ -46,7 +46,6 @@
 
 /* List managment */
 #define INPUT_TIMEOUT        (10)
-#define FOCUSED_HIRES_FRAMES (60 * 1) /* 1 second load in */
 
 /* Tile parameters */
 /* Basic Info */
@@ -65,7 +64,6 @@ static short ICON_SIZE_Y;
 
 static int current_selected_item;
 static int navigate_timeout;
-static int frames_focused;
 
 static bool boxart_button_held = false;
 
@@ -380,9 +378,29 @@ draw_game_meta(void) {
 }
 
 static void
+preload_add_item(int idx) {
+    if (strncmp(list_current[idx]->disc, "DIR", 3)) {
+        txr_preload_add(list_current[idx]->product);
+    }
+}
+
+/* The selected game first, then the neighbours the list can wrap to */
+static void
+request_large_art(void) {
+    if (list_len <= 0) {
+        return;
+    }
+    txr_preload_begin();
+    preload_add_item(current_selected_item);
+    preload_add_item(current_selected_item > 0 ? current_selected_item - 1 : list_len - 1);
+    preload_add_item(current_selected_item + 1 < list_len ? current_selected_item + 1 : 0);
+    txr_preload_end();
+}
+
+static void
 menu_changed_item(void) {
-    frames_focused = 0;
     db_get_meta(list_current[current_selected_item]->product, &current_meta);
+    request_large_art();
 }
 
 static bool
@@ -579,7 +597,6 @@ menu_accept(void) {
         list_len = list_length();
 
         current_selected_item = 0;
-        frames_focused = 0;
         draw_current = DRAW_UI;
 
         navigate_timeout = 3;
@@ -645,6 +662,8 @@ menu_settings(void) {
 
 static void
 update_data(void) {
+    txr_async_pump();
+
     if (!strncmp(list_current[current_selected_item]->disc, "DIR", 3)
         && !strncmp(list_current[current_selected_item]->name, "Back", 4)) {
         txr_focus.texture = img_dir_boxart.texture;
@@ -652,17 +671,14 @@ update_data(void) {
         txr_focus.height = img_dir_boxart.height;
         txr_focus.format = img_dir_boxart.format;
     } else {
-        if (frames_focused > FOCUSED_HIRES_FRAMES) {
-            txr_get_large(list_current[current_selected_item]->product, &txr_focus);
-            if (txr_focus.texture == img_empty_boxart.texture) {
-                txr_get_small(list_current[current_selected_item]->product, &txr_focus);
-            }
-        } else {
+        /* Cache only, the loader thread is the one that reads the DAT */
+        txr_defer_loads(1);
+        int deferred = txr_get_large(list_current[current_selected_item]->product, &txr_focus) == TXR_DEFERRED;
+        txr_defer_loads(0);
+        if (deferred || txr_focus.texture == img_empty_boxart.texture) {
             txr_get_small(list_current[current_selected_item]->product, &txr_focus);
         }
     }
-
-    frames_focused++;
 }
 
 static void
@@ -850,7 +866,6 @@ FUNCTION(UI_NAME, setup) {
 
     /* The carousel works this out for itself, so the row is all it needs */
     current_selected_item = (restore_row > 0 && restore_row < list_len) ? restore_row : 0;
-    frames_focused = 0;
     draw_current = DRAW_UI;
 
     navigate_timeout = 3;

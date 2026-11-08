@@ -13,6 +13,7 @@
 #include "backend/gdemu_sdk.h"
 #include "backend/gdmenu_binary.h"
 #include "backend/last_game.h"
+#include "texture/txr_manager.h"
 #include "vm2/vm2_api.h"
 
 extern int vm2_device_count;
@@ -169,6 +170,9 @@ bloom_launch(gd_item* disc) {
 
     launch_history_record(disc);
 
+    /* No art reads once the disc is about to change */
+    txr_async_shutdown();
+
     /* Committed to launching, hand it a quiet AICA */
     bgm_shutdown();
     dcnow_net_shutdown(); /* The next program must not inherit a live modem or adapter */
@@ -206,6 +210,9 @@ bleem_launch(gd_item* disc) {
 
     launch_history_record(disc);
 
+    /* No art reads once the disc is about to change */
+    txr_async_shutdown();
+
     /* Committed to launching, hand it a quiet AICA */
     bgm_shutdown();
     dcnow_net_shutdown(); /* The next program must not inherit a live modem or adapter */
@@ -240,6 +247,9 @@ bleem_launch(gd_item* disc) {
 void
 dreamcast_launch_disc(gd_item* disc) {
     launch_history_record(disc);
+
+    /* No art reads once the disc is about to change */
+    txr_async_shutdown();
 
     /* Hand the next program a quiet AICA */
     bgm_shutdown();
@@ -349,6 +359,9 @@ dreamcast_launch_cb(gd_item* disc) {
     }
 
     launch_history_record(disc);
+
+    /* No art reads once the disc is about to change */
+    txr_async_shutdown();
 
     /* Committed to launching, hand it a quiet AICA */
     bgm_shutdown();

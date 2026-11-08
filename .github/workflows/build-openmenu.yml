@@ -1,0 +1,42 @@
+name: Build openMenu (Dreamcast)
+
+on:
+  push:
+    branches: [jaquettes-async]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Build the official toolchain image (openMenu/docker/Dockerfile)
+        run: docker build -t openmenu-dev:local openMenu/docker
+
+      - name: Build modified openMenu
+        run: |
+          docker run --rm -u root -v "$PWD/openMenu:/src" -w /src openmenu-dev:local \
+            bash -c 'source /opt/toolchains/dc/kos/environ.sh && cmake --preset dc-release && cmake --build --preset dc-release'
+
+      - name: Build unmodified openMenu (control)
+        run: |
+          git worktree add /tmp/orig HEAD~1
+          docker run --rm -u root -v "/tmp/orig/openMenu:/src" -w /src openmenu-dev:local \
+            bash -c 'source /opt/toolchains/dc/kos/environ.sh && cmake --preset dc-release && cmake --build --preset dc-release'
+
+      - name: Collect binaries
+        run: |
+          mkdir -p out/modifie out/sans_modif
+          cp openMenu/cmake-build-dc-release/bin/1ST_READ.BIN out/modifie/
+          cp /tmp/orig/openMenu/cmake-build-dc-release/bin/1ST_READ.BIN out/sans_modif/
+          ls -l out/*/
+          sha256sum out/*/1ST_READ.BIN
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openmenu-1ST_READ
+          path: out/

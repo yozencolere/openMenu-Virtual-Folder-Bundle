@@ -43,7 +43,6 @@
 
 /* List managment */
 #define INPUT_TIMEOUT        (10)
-#define FOCUSED_HIRES_FRAMES (60 * 1) /* 1 second load in */
 #define ANIM_FRAMES          (15)
 
 /* Tile parameters */
@@ -89,7 +88,7 @@ static int screen_row = 0;
 static int screen_column = 0;
 static int current_starting_index = 0;
 static int navigate_timeout = INPUT_TIMEOUT;
-static int frames_focused = 0;
+static int preload_selected = -1; /* Selection the art was last requested for */
 
 static bool boxart_button_held = false;
 
@@ -169,6 +168,33 @@ draw_bg_layers(void) {
 static inline int
 current_selected(void) {
     return current_starting_index + (screen_row * COLUMNS) + (screen_column);
+}
+
+static void
+preload_add_item(int idx) {
+    if (idx >= 0 && idx < list_len && strncmp(list_current[idx]->disc, "DIR", 3)) {
+        txr_preload_add(list_current[idx]->product);
+    }
+}
+
+/* The selected game first, then left, right, up and down */
+static void
+update_preload(void) {
+    txr_async_pump();
+
+    int selected = current_selected();
+    if (list_len <= 0 || selected == preload_selected) {
+        return;
+    }
+    preload_selected = selected;
+
+    txr_preload_begin();
+    preload_add_item(selected);
+    preload_add_item(selected > 0 ? selected - 1 : list_len - 1);
+    preload_add_item(selected + 1 < list_len ? selected + 1 : 0);
+    preload_add_item(selected - COLUMNS);
+    preload_add_item(selected + COLUMNS);
+    txr_preload_end();
 }
 
 static void
@@ -396,7 +422,6 @@ menu_up(int amount) {
     setup_highlight_animation();
     kill_large_art_animation();
 
-    frames_focused = 0;
     navigate_timeout = INPUT_TIMEOUT;
 }
 
@@ -413,7 +438,6 @@ menu_down(int amount) {
     setup_highlight_animation();
     kill_large_art_animation();
 
-    frames_focused = 0;
     navigate_timeout = INPUT_TIMEOUT;
 }
 
@@ -447,7 +471,6 @@ menu_left(void) {
     setup_highlight_animation();
     kill_large_art_animation();
 
-    frames_focused = 0;
     navigate_timeout = INPUT_TIMEOUT;
 }
 
@@ -469,7 +492,6 @@ menu_right(void) {
     setup_highlight_animation();
     kill_large_art_animation();
 
-    frames_focused = 0;
     navigate_timeout = INPUT_TIMEOUT;
 }
 
@@ -543,6 +565,7 @@ menu_accept(void) {
 
         screen_column = screen_row = 0;
         current_starting_index = 0;
+        preload_selected = -1;
         draw_current = DRAW_UI;
 
         navigate_timeout = 3;
@@ -723,7 +746,6 @@ handle_keyboard_quickjump(void) {
             anim_clear(&anim_large_art_scale);
 
             navigate_timeout = INPUT_TIMEOUT;
-            frames_focused = 0;
             return;
         }
     }
@@ -858,6 +880,7 @@ FUNCTION(UI_NAME, setup) {
 
     screen_column = screen_row = 0;
     current_starting_index = 0;
+    preload_selected = -1;
     draw_current = DRAW_UI;
 
     /* Selection here is built from the page start plus the tile, so the row
@@ -928,6 +951,7 @@ FUNCTION_INPUT(UI_NAME, handle_input) {
 }
 
 FUNCTION(UI_NAME, drawOP) {
+    update_preload();
     draw_bg_layers();
 
     switch (draw_current) {

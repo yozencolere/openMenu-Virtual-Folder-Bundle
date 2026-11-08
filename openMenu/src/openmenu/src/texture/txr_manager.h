@@ -27,3 +27,18 @@ int txr_get_folder(const char* id, struct image* img);
 
 /* While set, a cache miss returns TXR_DEFERRED with the empty image instead of reading the DAT. */
 void txr_defer_loads(int defer);
+
+/* Background box art loading. Build the list in priority order, the selected
+ * game first. It replaces the previous list. */
+void txr_preload_begin(void);
+void txr_preload_add(const char* id);
+void txr_preload_end(void);
+
+/* Once per frame from the opaque pass: moves at most one finished read to VRAM */
+void txr_async_pump(void);
+
+/* True while the loader still has reads to do */
+int txr_async_busy(void);
+
+/* Stops the loader for good. Must run before the disc image changes. */
+void txr_async_shutdown(void);

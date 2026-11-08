@@ -818,7 +818,11 @@ main(int argc, char* argv[]) {
         online_time_sync_tick();
         clock_extender_tick();
         bgm_poll();
-        vid_waitvbl();
+        /* vid_waitvbl spins without yielding. While art is loading, the block
+         * in pvr_wait_ready paces the frame and leaves the CPU to the loader. */
+        if (!txr_async_busy()) {
+            vid_waitvbl();
+        }
         if (need_reload_ui) {
             ui_set_choice(sf_ui[0]);
         } else {
@@ -832,6 +836,7 @@ main(int argc, char* argv[]) {
 
 void
 exit_to_bios_ex(int do_mount, int do_send_id) {
+    txr_async_shutdown(); /* No art reads once the disc is about to change */
     bgm_shutdown();       /* BIOS expects a quiet AICA */
     dcnow_net_shutdown(); /* The next program must not inherit a live modem or adapter */
     const gd_item* item = get_cur_game_item();
